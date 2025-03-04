@@ -63,7 +63,6 @@ class ASFGNN(nn.Module):
         self.device = parse.DEVICE
         self.finalIntegration = args.final_integration
         self.attNorm = args.att_norm
-        # numLayers stands for GCN propagation depth, identifying with the number of attributes
         self.numLayers = args.num_layers
         self.ifRegBehav = args.ifRegBehav
         self.ifRegEmbedding = args.ifRegEmbedding
