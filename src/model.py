@@ -168,7 +168,6 @@ class ASFGNN(nn.Module):
 
         edge_index = edge_index.to(self.device)
 
-        # 合并用户和物品的特征
         layerEmbedding = torch.cat([user_preferences_tensor, item_ratings_tensor], dim=0).to(self.device)
 
         for layerNum, gcn in enumerate(self.gcn_layers):
@@ -176,15 +175,14 @@ class ASFGNN(nn.Module):
             if layerNum >= maxDepth:
                 break
             layerEmbedding = gcn(layerEmbedding, edge_index)
-            # print(f"Layer {layerNum}: layerEmbedding shape: {layerEmbedding.shape}")  # 调试输出
+            # print(f"Layer {layerNum}: layerEmbedding shape: {layerEmbedding.shape}")  
             layerEmbedding = F.dropout(layerEmbedding, training=self.training)
             layerEmbeddings.append(layerEmbedding)
-            # print(f"Layer {layerNum}: layerEmbeddings length: {len(layerEmbeddings)}")  # 调试输出
+            # print(f"Layer {layerNum}: layerEmbeddings length: {len(layerEmbeddings)}") 
 
         if len(layerEmbeddings) == 0:
             raise RuntimeError("layerEmbeddings is empty. Ensure that maxDepth is greater than 0 and less than or equal to the number of GCN layers.")
 
-        # 堆叠所有层的特征并计算均值
         LayerEmbeddingStack = torch.stack(layerEmbeddings, dim=0)
         layerEmbeddingMean = torch.mean(LayerEmbeddingStack, dim=0)
 
@@ -227,26 +225,24 @@ class ASFGNN(nn.Module):
         for behavIterI in range(self.numLayers):
             for behavIterJ in range(behavIterI + 1, self.numLayers):
 
-                # 访问 GCN 层的权重
                 userBehavEmbedI = self.gcn_layers[behavIterI].lin.weight
                 userBehavEmbedJ = self.gcn_layers[behavIterJ].lin.weight
-                # 计算余弦距离
+
                 cosDistanceUser = torch.sum(userBehavEmbedI * userBehavEmbedJ, dim=1)
-                cosDistanceUser /= (userBehavEmbedI.norm(p=2, dim=1) * userBehavEmbedJ.norm(p=2, dim=1) + 1e-8)  # 防止除零
+                cosDistanceUser /= (userBehavEmbedI.norm(p=2, dim=1) * userBehavEmbedJ.norm(p=2, dim=1) + 1e-8)  
                 regBehavTerm += cosDistanceUser.sum() / 3.
 
-                # 正样本
                 posBehavEmbedI = self.gcn_layers[behavIterI].lin.weight
                 posBehavEmbedJ = self.gcn_layers[behavIterJ].lin.weight
                 cosDistancePos = torch.sum(posBehavEmbedI * posBehavEmbedJ, dim=1)
-                cosDistancePos /= (posBehavEmbedI.norm(p=2, dim=1) * posBehavEmbedJ.norm(p=2, dim=1) + 1e-8)  # 防止除零
+                cosDistancePos /= (posBehavEmbedI.norm(p=2, dim=1) * posBehavEmbedJ.norm(p=2, dim=1) + 1e-8)  
                 regBehavTerm += cosDistancePos.sum() / 3.
 
-                # 负样本
+              
                 negBehavEmbedI = self.gcn_layers[behavIterI].lin.weight
                 negBehavEmbedJ = self.gcn_layers[behavIterJ].lin.weight
                 cosDistanceNeg = torch.sum(negBehavEmbedI * negBehavEmbedJ, dim=1)
-                cosDistanceNeg /= (negBehavEmbedI.norm(p=2, dim=1) * negBehavEmbedJ.norm(p=2, dim=1) + 1e-8)  # 防止除零
+                cosDistanceNeg /= (negBehavEmbedI.norm(p=2, dim=1) * negBehavEmbedJ.norm(p=2, dim=1) + 1e-8)  
                 regBehavTerm += cosDistanceNeg.sum() / 3.
 
         regBehavTerm /= (float(len(userIDs_tensor)) * 2)
@@ -263,22 +259,17 @@ class ASFGNN(nn.Module):
         activeDiff = softPlus(torch.sum(negPreds, dim=1) - torch.sum(posPreds, dim=1))
         activeDiff2 = softPlus(torch.sum(negPreds2, dim=1) - torch.sum(posPreds2, dim=1))
 
-        #计算activeDiff3
         trueRatings = []
-
         for user_id, pos_item_id in zip(userIDs, posItemIDs):
-            # 确保 user_id 和 pos_item_id 在 CPU 上
             user_id_cpu = user_id.cpu().item()
             pos_item_id_cpu = pos_item_id.cpu().item()
 
-            # 检查筛选结果是否有效
             trueRating = user_item_ratings[
                 (user_item_ratings['user_id'] == user_id_cpu) &
                 (user_item_ratings['item_id'] == pos_item_id_cpu)
                 ]['ratings'].values
 
             if len(trueRating) == 0:
-                # 处理空的或无效的筛选结果
                 print("err")
                 continue
 
@@ -299,7 +290,7 @@ class ASFGNN(nn.Module):
 
     # def getRatings(self,):
     def getRatings(self, userIDs: list,user_unseen_items_dict:dict):
-        print("开始计算评分：\n")
+      
         userIDs_tensor = torch.LongTensor(userIDs).to(self.device)
         finalUsers, finalItems = self.propagation()
 
@@ -338,18 +329,17 @@ class ASFGNN(nn.Module):
 
         user_pref_embeddings = self.userPrefEmbeddings(user_preferences_tensor[userIDs_tensor].to(self.device))
         item_rating_embeddings = self.itemRatingEmbeddings(item_ratings_tensor[itemIDs_tensor].to(self.device))
-        # 偏好评分
         prefBasedRatings = self.activeLayer(torch.matmul(user_pref_embeddings, item_rating_embeddings.T))
 
 
         allUserEmbeds, allItemEmbeds = self.propagation()
         userEmbeds = allUserEmbeds[userIDs_tensor]
         itemEmbeds = allItemEmbeds[itemIDs_tensor]
-        # 卷积评分
+
         embedBasedRatings = self.activeLayer(torch.matmul(userEmbeds, itemEmbeds.T))
         print("embedBasedRatings,prefBasedRatings:",embedBasedRatings,prefBasedRatings)
         print("embedBasedRatings.shape,prefBasedRatings.shape:", embedBasedRatings.shape, prefBasedRatings.shape)
-        # 评分融合
+
         ratingPreds = embedBasedRatings + prefBasedRatings*0.5
 
 

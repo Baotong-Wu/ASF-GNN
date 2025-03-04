@@ -170,10 +170,9 @@ def HrAtK(groundTrue, occurrenceResult, k):
     """
     assert len(occurrenceResult) == len(groundTrue)
 
-    hit = 0  # 记录命中的次数
-    predData = occurrenceResult[:, :k].sum(1)  # 取每个用户前k个预测结果
+    hit = 0 
+    predData = occurrenceResult[:, :k].sum(1)  
     for i in range(len(groundTrue)):
-        # 如果predData的前k个结果中包含1，则表示命中
         if np.any(predData[i] == 1):
             hit += 1
 
