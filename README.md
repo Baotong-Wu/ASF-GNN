@@ -14,3 +14,11 @@ scipy==1.8.0
 torch==1.11.0+cu113
 
 simpletransformers==0.48.0
+# Usage
+Execute the following command in the terminal.
+```
+python main.py
+```
+or
+```
+python main.py --dataset Yelp --lr 0.001 --epochs 100
